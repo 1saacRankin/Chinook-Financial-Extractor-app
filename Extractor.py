@@ -642,23 +642,21 @@ with left_col:
             horizontal=True,
             help="'Latest document' orders by most recent file, with remaining fields alphabetically at the end"
         )
-
+        
         if sort_order == "Appearance in latest document":
             pdfs_with_info = [(p["name"], p["bytes"], st.session_state["page_selections"].get(p["name"])) 
-                            for p in st.session_state["uploaded_pdfs"]]
+                              for p in st.session_state["uploaded_pdfs"]]
             all_fields = get_field_order_from_latest_document(pdfs_with_info, freq)
-
+        
         # Select All button
         col1, col2, col3 = st.columns([1, 1, 2])
         with col1:
             if st.button("✓ Select All", help="Select all fields"):
                 st.session_state["selected_fields"] = all_fields.copy()
-                st.rerun()  # Force immediate refresh
         with col2:
             if st.button("✗ Clear All", help="Clear all selections"):
                 st.session_state["selected_fields"] = []
-                st.rerun()  # Force immediate refresh
-
+        
         # Multiselect with session state
         selected_fields = st.multiselect(
             f"Select fields to extract ({len(all_fields)} available):",
@@ -666,10 +664,10 @@ with left_col:
             default=st.session_state["selected_fields"],
             key="field_selector"
         )
-
+        
         # Update session state
         st.session_state["selected_fields"] = selected_fields
-        
+
 
         # Extract data from all PDFs
         if st.button("Extract Data", type="primary"):
