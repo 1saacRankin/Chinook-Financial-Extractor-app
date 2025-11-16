@@ -1,0 +1,14 @@
+streamlit
+pandas
+numpy
+plotly
+python-dateutil
+openpyxl
+pdfplumber
+re
+io
+base64
+datetime
+pdf2image
+pytesseract
+collections
