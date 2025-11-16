@@ -213,6 +213,7 @@ def get_field_order_from_latest_document(pdfs_with_info, freq):
     """
     Get fields ordered by appearance in the most recent document.
     For fields not in latest doc, append alphabetically at the end.
+    ONLY returns fields from the selected pages of the latest document.
     """
     # Find the most recent document
     if freq == "monthly":
@@ -234,7 +235,7 @@ def get_field_order_from_latest_document(pdfs_with_info, freq):
         else:
             latest_bytes, latest_pages = pdfs_with_info[0][1], pdfs_with_info[0][2]
     
-    # Extract fields from latest document in order
+    # Extract fields ONLY from latest document's selected pages
     text = extract_text_with_fallback(latest_bytes, latest_pages)
     latest_fields = []
     seen = set()
@@ -246,20 +247,9 @@ def get_field_order_from_latest_document(pdfs_with_info, freq):
                 latest_fields.append(field)
                 seen.add(field)
     
-    # Get all fields from all documents
-    all_fields = set()
-    for name, pdf_bytes, pages in pdfs_with_info:
-        text = extract_text_with_fallback(pdf_bytes, pages)
-        for line in text.splitlines():
-            if re.search(r"[0-9]", line):
-                field = clean_label(line)
-                if field and len(field) >= 3:
-                    all_fields.add(field)
-    
-    # Fields not in latest document - append alphabetically
-    remaining_fields = sorted(all_fields - seen)
-    
-    return latest_fields + remaining_fields
+    # Return ONLY fields from latest document (no remaining fields from other docs)
+    return latest_fields
+
 
 # ====================================
 # Yearly Extraction
@@ -819,10 +809,12 @@ if st.session_state["extracted_df"] is not None:
     df = st.session_state["extracted_df"]
     
     # Simple data editor
+    st.info(f"To delete rows, select rows in the left most column and then click the trash can in the top right corner.")
+
     edited_df = st.data_editor(
         df,
         num_rows="dynamic",
-        use_container_width=True,
+        #use_container_width=True,
         key="table_editor",
         hide_index=True
     )
@@ -843,4 +835,4 @@ if st.session_state["extracted_df"] is not None:
     )
 
 
-# Run: streamlit run CBA3.py
+# Run: streamlit run Extractor.py

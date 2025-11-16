@@ -3,3 +3,6 @@ Extracts desired accounting items from a batch of financials in PDF format.
 
 
 See: https://chinook-financial-extractor-app.streamlit.app/
+
+
+Note: depending on browser settings, file viewer may not work.
