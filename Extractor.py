@@ -764,60 +764,38 @@ with left_col:
 # Right Column - PDF Viewer
 # ====================================
 
-# with right_col:
-#     st.subheader("Document Viewer")
-    
-#     if st.session_state.get("uploaded_pdfs"):
-#         def sort_key(doc):
-#             date_obj = extract_month_year(doc.get("name", ""))
-#             return date_obj or datetime.max
-
-#         sorted_docs = sorted(st.session_state["uploaded_pdfs"], key=sort_key)
-#         doc_names = [p.get("name", "Unnamed Document") for p in sorted_docs]
-
-#         doc_to_view = st.selectbox(
-#             "Select a document to view",
-#             doc_names,
-#             key="viewer_select",
-#         )
-
-#         selected_doc = next(p for p in sorted_docs if p.get("name") == doc_to_view)
-#         pdf_bytes = selected_doc.get("bytes")
-
-#         if pdf_bytes:
-#             pdf_size_mb = len(pdf_bytes) / (1024 * 1024)
-#             if pdf_size_mb > 0.50:
-#                 st.info(f"Scanned document detected: showing image preview.")
-#                 display_pdf_preview_all_pages(io.BytesIO(pdf_bytes), dpi=75)
-#             else:
-#                 display_pdf(io.BytesIO(pdf_bytes))
-#     else:
-#         st.info("Upload documents to view them here.")
-
 with right_col:
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
-    from io import BytesIO
-    import streamlit as st
+    st.subheader("Document Viewer")
+    st.info("Chrome may block the viewer.")
+    
+    if st.session_state.get("uploaded_pdfs"):
+        def sort_key(doc):
+            date_obj = extract_month_year(doc.get("name", ""))
+            return date_obj or datetime.max
 
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer)
-    styles = getSampleStyleSheet()
+        sorted_docs = sorted(st.session_state["uploaded_pdfs"], key=sort_key)
+        doc_names = [p.get("name", "Unnamed Document") for p in sorted_docs]
 
-    story = []
-    story.append(Paragraph("Hello world — this PDF is not empty!", styles["Normal"]))
-    story.append(Spacer(1, 12))
+        doc_to_view = st.selectbox(
+            "Select a document to view",
+            doc_names,
+            key="viewer_select",
+        )
 
-    doc.build(story)
+        selected_doc = next(p for p in sorted_docs if p.get("name") == doc_to_view)
+        pdf_bytes = selected_doc.get("bytes")
 
-    buffer.seek(0)
+        if pdf_bytes:
+            pdf_size_mb = len(pdf_bytes) / (1024 * 1024)
+            if pdf_size_mb > 0.50:
+                st.info(f"Scanned document detected: showing image preview.")
+                display_pdf_preview_all_pages(io.BytesIO(pdf_bytes), dpi=75)
+            else:
+                display_pdf(io.BytesIO(pdf_bytes))
+    else:
+        st.info("Upload documents to view them here.")
 
-    st.download_button(
-        label="Download PDF",
-        data=buffer,
-        file_name="example.pdf",
-        mime="application/pdf",
-    )
+
 
 
 # ====================================
