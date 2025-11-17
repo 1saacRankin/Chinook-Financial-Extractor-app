@@ -841,16 +841,18 @@ with right_col:
                 display_pdf_preview_all_pages(io.BytesIO(pdf_bytes), dpi=75)
 
             else:
-                # Chrome-compatible embedded PDF viewer
+                # Chrome-compatible embedded PDF viewer (no sandbox)
                 base64_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
 
                 pdf_view_html = f"""
+                <!DOCTYPE html>
+                <html>
+                <body style="margin:0;padding:0;">
                     <object 
                         data="data:application/pdf;base64,{base64_pdf}" 
                         type="application/pdf" 
                         width="100%" 
                         height="800px"
-                        style="border:none;"
                     >
                         <iframe 
                             src="data:application/pdf;base64,{base64_pdf}"
@@ -861,9 +863,11 @@ with right_col:
 
                         <p>Your browser cannot display the PDF. Please use the download button above.</p>
                     </object>
+                </body>
+                </html>
                 """
 
-                st.markdown(pdf_view_html, unsafe_allow_html=True)
+                st.components.v1.html(pdf_view_html, height=800, scrolling=True)
 
                 st.caption("If the PDF does not display, use the download button above.")
     else:
