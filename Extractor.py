@@ -795,9 +795,15 @@ with left_col:
 #         st.info("Upload documents to view them here.")
 
 with right_col:
+    import base64
+    import io
+    from datetime import datetime
+
     st.subheader("Document Viewer")
-    
+
     if st.session_state.get("uploaded_pdfs"):
+
+        # Sort documents by extracted date in name
         def sort_key(doc):
             date_obj = extract_month_year(doc.get("name", ""))
             return date_obj or datetime.max
@@ -805,49 +811,61 @@ with right_col:
         sorted_docs = sorted(st.session_state["uploaded_pdfs"], key=sort_key)
         doc_names = [p.get("name", "Unnamed Document") for p in sorted_docs]
 
+        # User selects document
         doc_to_view = st.selectbox(
             "Select a document to view",
             doc_names,
             key="viewer_select",
         )
 
+        # Find selected document
         selected_doc = next(p for p in sorted_docs if p.get("name") == doc_to_view)
         pdf_bytes = selected_doc.get("bytes")
 
         if pdf_bytes:
+
+            # Check file size (scanned PDFs)
             pdf_size_mb = len(pdf_bytes) / (1024 * 1024)
-            
-            # Use base64 encoding for better Chrome compatibility
-            import base64
-            base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-            
+
+            # Always offer download
+            st.download_button(
+                label="📥 Download PDF",
+                data=pdf_bytes,
+                file_name=doc_to_view,
+                mime="application/pdf"
+            )
+
             if pdf_size_mb > 0.50:
-                st.info(f"Scanned document detected: showing image preview.")
+                # Large/scanned PDFs: use image preview only
+                st.info("Scanned document detected — showing image preview instead of PDF viewer.")
                 display_pdf_preview_all_pages(io.BytesIO(pdf_bytes), dpi=75)
+
             else:
-                # Method 1: Direct download button (most reliable)
-                st.download_button(
-                    label="📥 Download PDF to View",
-                    data=pdf_bytes,
-                    file_name=doc_to_view,
-                    mime="application/pdf"
-                )
-                
-                # Method 2: Base64 embedded PDF viewer with improved iframe settings
-                pdf_display = f'''
-                    <iframe 
-                        src="data:application/pdf;base64,{base64_pdf}" 
+                # Chrome-compatible embedded PDF viewer
+                base64_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
+
+                pdf_view_html = f"""
+                    <object 
+                        data="data:application/pdf;base64,{base64_pdf}" 
+                        type="application/pdf" 
                         width="100%" 
-                        height="800" 
-                        type="application/pdf"
-                        style="border: none;"
-                        sandbox="allow-same-origin allow-scripts"
-                    ></iframe>
-                '''
-                st.markdown(pdf_display, unsafe_allow_html=True)
-                
-                # Fallback message
-                st.caption("If the PDF doesn't display above, use the download button to view it.")
+                        height="800px"
+                        style="border:none;"
+                    >
+                        <iframe 
+                            src="data:application/pdf;base64,{base64_pdf}"
+                            width="100%" 
+                            height="800px"
+                            style="border:none;"
+                        ></iframe>
+
+                        <p>Your browser cannot display the PDF. Please use the download button above.</p>
+                    </object>
+                """
+
+                st.markdown(pdf_view_html, unsafe_allow_html=True)
+
+                st.caption("If the PDF does not display, use the download button above.")
     else:
         st.info("Upload documents to view them here.")
 
