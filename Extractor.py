@@ -818,16 +818,17 @@ with right_col:
             key="viewer_select",
         )
 
-        # Find selected document
-        selected_doc = next(p for p in sorted_docs if p.get("name") == doc_to_view)
+        # Find selected document dict
+        selected_doc = next(
+            p for p in sorted_docs if p.get("name") == doc_to_view
+        )
         pdf_bytes = selected_doc.get("bytes")
 
         if pdf_bytes:
 
-            # Check file size (scanned PDFs)
             pdf_size_mb = len(pdf_bytes) / (1024 * 1024)
 
-            # Always offer download
+            # Always provide download option
             st.download_button(
                 label="📥 Download PDF",
                 data=pdf_bytes,
@@ -835,41 +836,39 @@ with right_col:
                 mime="application/pdf"
             )
 
+            # Large PDF (>0.5 MB) → show image preview only
             if pdf_size_mb > 0.50:
-                # Large/scanned PDFs: use image preview only
-                st.info("Scanned document detected — showing image preview instead of PDF viewer.")
+                st.info("Scanned document detected — showing image preview.")
                 display_pdf_preview_all_pages(io.BytesIO(pdf_bytes), dpi=75)
 
             else:
-                # Chrome-compatible embedded PDF viewer (no sandbox)
+                #
+                # 🚀 PDF.js VIEWER (Chrome-safe)
+                #
                 base64_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
 
-                pdf_view_html = f"""
-                <!DOCTYPE html>
-                <html>
-                <body style="margin:0;padding:0;">
-                    <object 
-                        data="data:application/pdf;base64,{base64_pdf}" 
-                        type="application/pdf" 
-                        width="100%" 
-                        height="800px"
-                    >
-                        <iframe 
-                            src="data:application/pdf;base64,{base64_pdf}"
-                            width="100%" 
-                            height="800px"
-                            style="border:none;"
-                        ></iframe>
+                # Use Mozilla’s hosted PDF.js viewer
+                pdfjs_url = (
+                    "https://mozilla.github.io/pdf.js/web/viewer.html"
+                    f"?file=data:application/pdf;base64,{base64_pdf}"
+                )
 
-                        <p>Your browser cannot display the PDF. Please use the download button above.</p>
-                    </object>
-                </body>
-                </html>
+                pdf_view_html = f"""
+                    <iframe 
+                        src="{pdfjs_url}"
+                        width="100%" 
+                        height="800px" 
+                        style="border:none;"
+                    ></iframe>
                 """
 
+                # Render inside Streamlit's iframe
                 st.components.v1.html(pdf_view_html, height=800, scrolling=True)
 
-                st.caption("If the PDF does not display, use the download button above.")
+                st.caption(
+                    "If the PDF does not display, use the download button above."
+                )
+
     else:
         st.info("Upload documents to view them here.")
 
