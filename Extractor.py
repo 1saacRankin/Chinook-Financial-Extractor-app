@@ -794,16 +794,18 @@ with left_col:
 #     else:
 #         st.info("Upload documents to view them here.")
 
-with right_col:
-    import base64
-    import io
-    from datetime import datetime
+import base64
+import io
+import os
+import uuid
+from datetime import datetime
+import streamlit as st
 
+with right_col:
     st.subheader("Document Viewer")
 
     if st.session_state.get("uploaded_pdfs"):
 
-        # Sort documents by extracted date in name
         def sort_key(doc):
             date_obj = extract_month_year(doc.get("name", ""))
             return date_obj or datetime.max
@@ -811,14 +813,12 @@ with right_col:
         sorted_docs = sorted(st.session_state["uploaded_pdfs"], key=sort_key)
         doc_names = [p.get("name", "Unnamed Document") for p in sorted_docs]
 
-        # User selects document
         doc_to_view = st.selectbox(
             "Select a document to view",
             doc_names,
             key="viewer_select",
         )
 
-        # Find selected document dict
         selected_doc = next(
             p for p in sorted_docs if p.get("name") == doc_to_view
         )
@@ -828,50 +828,58 @@ with right_col:
 
             pdf_size_mb = len(pdf_bytes) / (1024 * 1024)
 
-            # Always provide download option
+            # Download button
             st.download_button(
-                label="📥 Download PDF",
-                data=pdf_bytes,
+                "📥 Download PDF",
+                pdf_bytes,
                 file_name=doc_to_view,
-                mime="application/pdf"
+                mime="application/pdf",
             )
 
-            # Large PDF (>0.5 MB) → show image preview only
+            # Large PDFs → render as images
             if pdf_size_mb > 0.50:
                 st.info("Scanned document detected — showing image preview.")
                 display_pdf_preview_all_pages(io.BytesIO(pdf_bytes), dpi=75)
 
             else:
                 #
-                # 🚀 PDF.js VIEWER (Chrome-safe)
+                # 🚀 Write PDF to temp file inside .streamlit/static
                 #
-                base64_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
+                STATIC_DIR = ".streamlit/static"
+                os.makedirs(STATIC_DIR, exist_ok=True)
 
-                # Use Mozilla’s hosted PDF.js viewer
-                pdfjs_url = (
-                    "https://mozilla.github.io/pdf.js/web/viewer.html"
-                    f"?file=data:application/pdf;base64,{base64_pdf}"
+                # Unique file per selection
+                temp_filename = f"{uuid.uuid4()}.pdf"
+                temp_path = os.path.join(STATIC_DIR, temp_filename)
+
+                with open(temp_path, "wb") as f:
+                    f.write(pdf_bytes)
+
+                # Local URL for Streamlit static files
+                pdf_url = f"/static/{temp_filename}"
+
+                pdfjs_viewer = (
+                    f"https://mozilla.github.io/pdf.js/web/viewer.html?file={pdf_url}"
                 )
 
-                pdf_view_html = f"""
+                # Embed the viewer
+                st.components.v1.html(
+                    f"""
                     <iframe 
-                        src="{pdfjs_url}"
+                        src="{pdfjs_viewer}"
                         width="100%" 
                         height="800px" 
                         style="border:none;"
                     ></iframe>
-                """
-
-                # Render inside Streamlit's iframe
-                st.components.v1.html(pdf_view_html, height=800, scrolling=True)
-
-                st.caption(
-                    "If the PDF does not display, use the download button above."
+                    """,
+                    height=800,
+                    scrolling=True
                 )
+
+                st.caption("If the PDF does not display, use the download button above.")
 
     else:
         st.info("Upload documents to view them here.")
-
 
 # ====================================
 # Full Width - Table editor
