@@ -766,7 +766,7 @@ with left_col:
 
 with right_col:
     st.subheader("Document Viewer")
-    st.info("Chrome may block the viewer.")
+    st.info("Chrome and Safari may block the viewer. Firefox seems to allow it.")
     
     if st.session_state.get("uploaded_pdfs"):
         def sort_key(doc):
