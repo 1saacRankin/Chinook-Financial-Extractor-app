@@ -794,92 +794,31 @@ with left_col:
 #     else:
 #         st.info("Upload documents to view them here.")
 
-import base64
-import io
-import os
-import uuid
-from datetime import datetime
-import streamlit as st
-
 with right_col:
-    st.subheader("Document Viewer")
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    from io import BytesIO
+    import streamlit as st
 
-    if st.session_state.get("uploaded_pdfs"):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer)
+    styles = getSampleStyleSheet()
 
-        def sort_key(doc):
-            date_obj = extract_month_year(doc.get("name", ""))
-            return date_obj or datetime.max
+    story = []
+    story.append(Paragraph("Hello world — this PDF is not empty!", styles["Normal"]))
+    story.append(Spacer(1, 12))
 
-        sorted_docs = sorted(st.session_state["uploaded_pdfs"], key=sort_key)
-        doc_names = [p.get("name", "Unnamed Document") for p in sorted_docs]
+    doc.build(story)
 
-        doc_to_view = st.selectbox(
-            "Select a document to view",
-            doc_names,
-            key="viewer_select",
-        )
+    buffer.seek(0)
 
-        selected_doc = next(
-            p for p in sorted_docs if p.get("name") == doc_to_view
-        )
-        pdf_bytes = selected_doc.get("bytes")
+    st.download_button(
+        label="Download PDF",
+        data=buffer,
+        file_name="example.pdf",
+        mime="application/pdf",
+    )
 
-        if pdf_bytes:
-
-            pdf_size_mb = len(pdf_bytes) / (1024 * 1024)
-
-            # Download button
-            st.download_button(
-                "📥 Download PDF",
-                pdf_bytes,
-                file_name=doc_to_view,
-                mime="application/pdf",
-            )
-
-            # Large PDFs → render as images
-            if pdf_size_mb > 0.50:
-                st.info("Scanned document detected — showing image preview.")
-                display_pdf_preview_all_pages(io.BytesIO(pdf_bytes), dpi=75)
-
-            else:
-                #
-                # 🚀 Write PDF to temp file inside .streamlit/static
-                #
-                STATIC_DIR = ".streamlit/static"
-                os.makedirs(STATIC_DIR, exist_ok=True)
-
-                # Unique file per selection
-                temp_filename = f"{uuid.uuid4()}.pdf"
-                temp_path = os.path.join(STATIC_DIR, temp_filename)
-
-                with open(temp_path, "wb") as f:
-                    f.write(pdf_bytes)
-
-                # Local URL for Streamlit static files
-                pdf_url = f"/static/{temp_filename}"
-
-                pdfjs_viewer = (
-                    f"https://mozilla.github.io/pdf.js/web/viewer.html?file={pdf_url}"
-                )
-
-                # Embed the viewer
-                st.components.v1.html(
-                    f"""
-                    <iframe 
-                        src="{pdfjs_viewer}"
-                        width="100%" 
-                        height="800px" 
-                        style="border:none;"
-                    ></iframe>
-                    """,
-                    height=800,
-                    scrolling=True
-                )
-
-                st.caption("If the PDF does not display, use the download button above.")
-
-    else:
-        st.info("Upload documents to view them here.")
 
 # ====================================
 # Full Width - Table editor
