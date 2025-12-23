@@ -1499,6 +1499,340 @@ if "fields_extracted" not in st.session_state:
     
     
     
+# # ====================================
+# # Layout
+# # ====================================
+# left_col, right_col = st.columns([2, 1])
+
+# with left_col:
+    
+#     # Upload all PDFs first
+#     st.subheader("Step 1: Upload All PDFs")
+#     multiple_pdfs = st.file_uploader("Upload all PDF files", type=["pdf"], accept_multiple_files=True, key="batch_upload")
+    
+#     if multiple_pdfs:
+#         # Check if files changed
+#         current_file_names = {f.name for f in multiple_pdfs}
+#         previous_file_names = {p["name"] for p in st.session_state.get("pdf_data", [])}
+        
+#         if current_file_names != previous_file_names:
+#             # Files changed - reset everything
+#             st.session_state["fields_extracted"] = False
+#             st.session_state["all_fields"] = []
+#             st.session_state["selected_fields"] = []
+#             st.session_state["page_selections"] = {}
+#             st.cache_data.clear()  # Clear all cached data
+        
+#         # Store PDFs efficiently - only read once
+#         if "pdf_data" not in st.session_state or len(st.session_state.get("pdf_data", [])) != len(multiple_pdfs):
+#             with st.spinner("Loading PDFs..."):
+#                 st.session_state["pdf_data"] = [{"name": f.name, "bytes": f.read()} for f in multiple_pdfs]
+        
+#         st.session_state["uploaded_pdfs"] = st.session_state["pdf_data"]
+        
+#         # Improved frequency detection
+#         all_names = [p["name"] for p in st.session_state["uploaded_pdfs"]]
+#         detected_freq = detect_frequency(all_names)
+        
+#         # Allow manual override
+#         freq = st.radio("Document frequency:", ["monthly", "yearly"], 
+#                        index=0 if detected_freq == "monthly" else 1,
+#                        horizontal=True)
+        
+#         # Duplicate field detection
+#         st.subheader("Step 2: Duplicate Field Detection")
+#         with st.expander("View fields appearing on multiple pages", expanded=False):
+#             st.info("These fields appear on multiple pages within the same document. Consider selecting specific pages to avoid duplicates.")
+            
+#             for pdf_file in st.session_state["uploaded_pdfs"]:
+#                 file_hash = get_file_hash(pdf_file["bytes"])
+#                 duplicates = cached_duplicate_detection(file_hash, pdf_file["bytes"], pdf_file["name"])
+#                 if duplicates:
+#                     st.write(f"**{pdf_file['name']}:** ({len(duplicates)} duplicates found)")
+#                     for field, pages in duplicates.items():
+#                         st.write(f"  • {field}: Pages {', '.join(map(str, pages))}")
+#                 else:
+#                     st.write(f"**{pdf_file['name']}:** No duplicates detected")
+        
+#         # Page selection for each document
+#         st.subheader("Step 3: Select Pages (Optional)")
+#         with st.expander("Configure page extraction per document", expanded=False):
+#             st.info("By default, all pages are extracted. Select specific pages to reduce false positives.")
+#             for pdf_file in st.session_state["uploaded_pdfs"]:
+#                 file_hash = get_file_hash(pdf_file["bytes"])
+#                 page_count = cached_page_count(file_hash, pdf_file["bytes"])
+                
+#                 # Get current selection
+#                 current_selection = st.session_state["page_selections"].get(pdf_file["name"])
+#                 if current_selection:
+#                     default_pages = [p + 1 for p in current_selection]
+#                 else:
+#                     default_pages = []
+                
+#                 selected = st.multiselect(
+#                     f"{pdf_file['name']} (Total: {page_count} pages)",
+#                     options=list(range(1, page_count + 1)),
+#                     default=default_pages,
+#                     key=f"pages_{pdf_file['name']}"
+#                 )
+                
+#                 # Convert to 0-indexed and save
+#                 new_selection = [p - 1 for p in selected] if selected else None
+#                 st.session_state["page_selections"][pdf_file["name"]] = new_selection
+        
+#         # Extract preview data from all PDFs
+#         st.subheader("Step 4: Select Fields to Extract")
+        
+#         # Cache field extraction - use selected pages for each document
+#         if not st.session_state["fields_extracted"]:
+#             with st.spinner("Loading fields from selected pages..."):
+#                 if freq == "monthly":
+#                     all_fields = set()
+#                     for pdf_file in st.session_state["uploaded_pdfs"]:
+#                         file_hash = get_file_hash(pdf_file["bytes"])
+#                         selected_pages = st.session_state["page_selections"].get(pdf_file["name"])
+#                         text = cached_extract_text(file_hash, pdf_file["bytes"], selected_pages)
+#                         candidate_lines = [clean_label(line) for line in text.splitlines() if re.search(r"[0-9]", line)]
+#                         all_fields.update(candidate_lines)
+#                     st.session_state["all_fields"] = sorted(all_fields)
+#                 else:
+#                     all_descriptions = set()
+#                     for pdf_file in st.session_state["uploaded_pdfs"]:
+#                         file_hash = get_file_hash(pdf_file["bytes"])
+#                         selected_pages = st.session_state["page_selections"].get(pdf_file["name"])
+#                         df_preview = cached_extract_yearly_preview(file_hash, pdf_file["bytes"], pdf_file["name"], selected_pages)
+#                         if not df_preview.empty:
+#                             all_descriptions.update(df_preview["Description"].unique())
+#                     st.session_state["all_fields"] = sorted(all_descriptions)
+                
+#                 st.session_state["fields_extracted"] = True
+        
+#         all_fields = st.session_state["all_fields"]
+        
+#         # Add form to prevent auto-rerun while selecting
+#         with st.form("field_selection_form"):
+#             # Field ordering option
+#             sort_order = st.radio(
+#                 "Order fields by:", 
+#                 ["Alphabetical", "Appearance in latest document"], 
+#                 horizontal=True,
+#                 help="'Latest document' orders by most recent file, with remaining fields alphabetically at the end"
+#             )
+            
+#             # Multiselect with session state
+#             selected_fields = st.multiselect(
+#                 f"Select fields to extract ({len(all_fields)} available):",
+#                 options=all_fields,
+#                 default=st.session_state["selected_fields"],
+#                 key="field_selector"
+#             )
+            
+#             # Select All / Clear All / Submit buttons
+#             col1, col2, col3 = st.columns([1, 1, 2])
+#             with col1:
+#                 select_all = st.form_submit_button("✓ Select All", help="Select all fields")
+#             with col2:
+#                 clear_all = st.form_submit_button("✗ Clear All", help="Clear all selections")
+#             with col3:
+#                 submit = st.form_submit_button("✅ Confirm Selection", type="primary")
+            
+#             # Handle form submissions
+#             if select_all:
+#                 st.session_state["selected_fields"] = all_fields.copy()
+#                 st.rerun()
+#             elif clear_all:
+#                 st.session_state["selected_fields"] = []
+#                 st.rerun()
+#             elif submit:
+#                 if sort_order == "Appearance in latest document":
+#                     pdfs_with_info = [(p["name"], p["bytes"], st.session_state["page_selections"].get(p["name"])) 
+#                                       for p in st.session_state["uploaded_pdfs"]]
+#                     all_fields = get_field_order_from_latest_document(pdfs_with_info, freq)
+#                 st.session_state["selected_fields"] = selected_fields
+
+
+#         # Extract data from all PDFs
+#         if st.button("Extract Data", type="primary"):
+#             with st.spinner("Extracting data..."):
+                
+#                 # When data is monthly
+#                 if freq == "monthly":
+#                     months_found = []
+#                     data_dict = {}
+#                     for pdf_file in st.session_state["uploaded_pdfs"]:
+#                         selected_pages = st.session_state["page_selections"].get(pdf_file["name"])
+#                         col_name, data = extract_pdf_data_monthly(pdf_file["bytes"], pdf_file["name"], selected_fields, selected_pages)
+#                         data_dict[col_name] = data
+#                         date_obj = extract_month_year(pdf_file["name"])
+#                         if date_obj:
+#                             months_found.append(date_obj)
+
+#                     # Check duplicates
+#                     duplicates = sorted(set([m for m in months_found if months_found.count(m) > 1]))
+#                     if duplicates:
+#                         st.warning(f"⚠️ Duplicate months detected: {', '.join(d.strftime('%B %Y') for d in duplicates)}")
+
+#                     # Check missing
+#                     if months_found:
+#                         all_months = pd.date_range(start=min(months_found), end=max(months_found), freq="MS")
+#                         missing = [m for m in all_months if m not in months_found]
+#                         if missing:
+#                             st.error(f"❌ Missing months: {', '.join(m.strftime('%B %Y') for m in missing)}")
+#                         for miss in missing:
+#                             data_dict[miss.strftime("%B %Y")] = {field: np.nan for field in selected_fields}
+
+#                     df = pd.DataFrame(data_dict)
+#                     df = df[sorted(df.columns, key=lambda c: extract_month_year(c) or datetime.max)]
+                    
+#                     # Add Description column as the first column for monthly data
+#                     df.insert(0, 'Description', df.index)
+#                     df = df.reset_index(drop=True)
+                    
+#                     # Merge duplicate rows
+#                     df = merge_duplicate_rows(df)
+                    
+#                     # Remove sparse columns
+#                     df, removed = remove_sparse_columns(df)
+                    
+#                     st.session_state["extracted_df"] = df
+#                     st.session_state["conflicts"] = {}
+
+#                 # When data is yearly
+#                 else:  
+#                     years_found = []
+#                     dfs_with_sources = []
+                    
+#                     for pdf_file in st.session_state["uploaded_pdfs"]:
+#                         selected_pages = st.session_state["page_selections"].get(pdf_file["name"])
+#                         df = extract_pdf_data_yearly(pdf_file["bytes"], pdf_file["name"], selected_fields, selected_pages)
+#                         if not df.empty:
+#                             year_main = extract_year(pdf_file["name"])
+#                             if year_main is not None:
+#                                 years_found.extend([year_main, year_main - 1])
+#                             dfs_with_sources.append(df)
+
+#                     # Check for missing years
+#                     missing = []
+#                     if years_found:
+#                         all_years_range = range(min(years_found), max(years_found) + 1)
+#                         missing = [y for y in all_years_range if y not in years_found]
+#                         if missing:
+#                             st.error(f"❌ Missing years: {', '.join(str(y) for y in missing)}")
+
+#                     # Use robust consolidation
+#                     final_df, conflicts = consolidate_yearly_data(dfs_with_sources)
+                    
+#                     # Add missing years as blank columns
+#                     for y in missing:
+#                         col_name = str(y)
+#                         if col_name not in final_df.columns:
+#                             final_df[col_name] = np.nan
+
+#                     # Sort columns by year
+#                     def year_key(col):
+#                         if col == 'Description':
+#                             return 0
+#                         try:
+#                             return int(re.search(r"\d{4}", col).group())
+#                         except:
+#                             return 9999
+
+#                     cols_sorted = sorted(final_df.columns, key=year_key)
+#                     final_df = final_df[cols_sorted]
+                    
+#                     # Merge duplicate rows
+#                     final_df = merge_duplicate_rows(final_df)
+                    
+#                     # Remove sparse columns
+#                     final_df, removed = remove_sparse_columns(final_df)
+
+#                     st.session_state["extracted_df"] = final_df
+#                     st.session_state["conflicts"] = conflicts
+                
+#                 # Show extraction summary
+#                 rows, cols = st.session_state["extracted_df"].shape
+#                 st.success(f"✅ Data extraction complete! {rows} rows × {cols} columns")
+                
+#                 if rows * cols > 100000:
+#                     st.info(f"ℹ️ Large dataset detected ({rows * cols:,} cells). Cell highlighting disabled for performance.")
+
+# # ====================================
+# # Right Column - PDF Viewer
+# # ====================================
+
+# with right_col:
+#     st.subheader("Document Viewer")
+    
+#     if st.session_state.get("uploaded_pdfs"):
+#         def sort_key(doc):
+#             date_obj = extract_month_year(doc.get("name", ""))
+#             return date_obj or datetime.max
+
+#         sorted_docs = sorted(st.session_state["uploaded_pdfs"], key=sort_key)
+#         doc_names = [p.get("name", "Unnamed Document") for p in sorted_docs]
+
+#         doc_to_view = st.selectbox(
+#             "Select a document to view",
+#             doc_names,
+#             key="viewer_select",
+#         )
+
+#         selected_doc = next(p for p in sorted_docs if p.get("name") == doc_to_view)
+#         pdf_bytes = selected_doc.get("bytes")
+
+#         if pdf_bytes:
+#             # Use st.pdf for all PDFs - it handles both text and scanned PDFs well
+#             display_pdf(pdf_bytes)
+#     else:
+#         st.info("Upload documents to view them here.")
+
+
+
+
+# # ====================================
+# # Full Width - Table editor
+# # ====================================
+# if st.session_state["extracted_df"] is not None:
+#     st.subheader("Step 5: Edit & Download Data")
+#     st.info("The table below is fully editable. You can modify the extracted values directly.")
+
+#     fill_value = st.number_input("Fill all missing values with:", value=0)
+#     if st.button("Fill Missing Values"):
+#         st.session_state["extracted_df"] = st.session_state["extracted_df"].fillna(fill_value)
+
+#     df = st.session_state["extracted_df"]
+    
+#     # Simple data editor
+#     st.info(f"To delete rows, select rows in the left most column and then click the trash can in the top right corner.")
+
+#     edited_df = st.data_editor(
+#         df,
+#         num_rows="dynamic",
+#         #use_container_width=True,
+#         key="table_editor",
+#         hide_index=True
+#     )
+    
+#     st.session_state["extracted_df"] = edited_df
+
+#     file_name = st.text_input("Output file name (press Enter to update):", value="financial_data.xlsx")
+
+#     output = io.BytesIO()
+#     edited_df.to_excel(output, index=False)
+#     output.seek(0)
+#     st.download_button(
+#         label="📥 Download Excel",
+#         data=output,
+#         file_name=file_name,
+#         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+#         type="primary"
+#     )
+
+
+# # Run: streamlit run Extractor.py 
+
+
+
 # ====================================
 # Layout
 # ====================================
@@ -1763,6 +2097,14 @@ with left_col:
 with right_col:
     st.subheader("Document Viewer")
     
+    # Add viewer type selector - default to iframe for better Chrome compatibility
+    viewer_type = st.radio(
+        "PDF Viewer:",
+        ["Iframe (Recommended for Chrome)", "Native (st.pdf)"],
+        horizontal=True,
+        help="Chrome may block the native viewer. Iframe works in all browsers."
+    )
+    
     if st.session_state.get("uploaded_pdfs"):
         def sort_key(doc):
             date_obj = extract_month_year(doc.get("name", ""))
@@ -1781,8 +2123,8 @@ with right_col:
         pdf_bytes = selected_doc.get("bytes")
 
         if pdf_bytes:
-            # Use st.pdf for all PDFs - it handles both text and scanned PDFs well
-            display_pdf(pdf_bytes)
+            use_native = viewer_type == "Native (st.pdf)"
+            display_pdf(pdf_bytes, use_native=use_native)
     else:
         st.info("Upload documents to view them here.")
 
@@ -1829,4 +2171,4 @@ if st.session_state["extracted_df"] is not None:
     )
 
 
-# Run: streamlit run Extractor.py 
+# Run: streamlit run Extractor.py
